@@ -86,16 +86,53 @@ const loginWithCredentials = async (page: any, browser: Browser) => {
         await page.type('input[name="password"]', IGpassword); // Replace with your password
         await page.click('button[type="submit"]');
 
-        // Wait for navigation after login
-        await page.waitForNavigation();
+        // Wait for either 2FA input field or successful navigation
+        try {
+            // Wait for potential 2FA verification page (security code input)
+            const twoFactorSelector = 'input[name="verificationCode"], input[placeholder="Security code"], input[aria-label="Security code"]';
+            await page.waitForSelector(twoFactorSelector, { timeout: 10000 });
+            
+            logger.info("2FA authentication required. Please check your device for the security code.");
+            
+            // Create a visible prompt for the user to enter the 2FA code
+            await page.evaluate(() => {
+                const div = document.createElement('div');
+                div.id = 'custom-2fa-prompt';
+                div.style.position = 'fixed';
+                div.style.top = '0';
+                div.style.left = '0';
+                div.style.width = '100%';
+                div.style.backgroundColor = 'red';
+                div.style.color = 'white';
+                div.style.padding = '20px';
+                div.style.zIndex = '9999';
+                div.style.fontSize = '24px';
+                div.style.textAlign = 'center';
+                div.innerHTML = 'Please enter the 2FA code in the Instagram input box, then press ENTER';
+                document.body.appendChild(div);
+            });
+            
+            // Wait for the user to enter the 2FA code and submit
+            await page.waitForNavigation({ timeout: 120000 }); // 2 minute timeout for user to enter code
+            
+            // Remove the custom prompt after navigation
+            await page.evaluate(() => {
+                const prompt = document.getElementById('custom-2fa-prompt');
+                if (prompt) prompt.remove();
+            });
+            
+            logger.info("2FA authentication completed successfully.");
+        } catch (error) {
+            // If no 2FA was required or already handled by browser
+            logger.info("No 2FA required or already handled.");
+        }
 
         // Save cookies after login
         const cookies = await browser.cookies();
-        // logger.info("Saving cookies after login...",cookies);
         await saveCookies("./cookies/Instagramcookies.json", cookies);
+        logger.info("Login successful, cookies saved.");
     } catch (error) {
-        // logger.error("Error logging in with credentials:", error);
-        logger.error("Error logging in with credentials:");
+        logger.error("Error logging in with credentials:", error);
     }
 }
 
