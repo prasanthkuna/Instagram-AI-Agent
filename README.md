@@ -19,10 +19,11 @@ Before using the automation features, you can personalize the agent by training 
 - **Proxy Support**: Use proxies to manage multiple accounts and avoid rate limits.
 - **Cookie Management**: Save and load cookies to maintain sessions across restarts.
 
-**Upcoming Features:**
+**Features:**
 
-- **Twitter Automation**: (Coming soon) Automatically tweet, retweet, and like tweets.
-- **GitHub Automation**: (Coming soon) Automatically manage repositories, issues, and pull requests.
+- **Twitter Automation**: Automatically tweet content with images using your character profile.
+- **Upcoming Features:**
+  - **GitHub Automation**: (Coming soon) Automatically manage repositories, issues, and pull requests.
 
 ## Installation
 
@@ -101,25 +102,22 @@ Before using the automation features, you can personalize the agent by training 
    ```sh
    npm start
    ```
+
+2. **Run the Twitter agent only**:
+   ```sh
+   npm run start:twitter
+   ```
    
-2. **Switch characters without restarting**:
+3. **Switch characters without restarting**:
    ```sh
    npm run switch-character
    ```
    
-3. **Clear cache if experiencing issues**:
+4. **Clear cache if experiencing issues**:
    ```sh
    npm run clear-cache
    ```
    This will clear Instagram cookies and force a new login on next start.
-
-**Upcoming Features:**
-
-- **Run the Twitter agent** (Coming soon):
-
-  ```sh
-  npm run start:twitter
-  ```
 
 - **Run the GitHub agent** (Coming soon):
   ```sh

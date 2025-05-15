@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsc && npm run postbuild && node build/index.js",
+    "start:twitter": "tsc && npm run postbuild && node build/client/Twitter.js",
     "postbuild": "rimraf build/Agent/characters && npx mkdirp build/Agent/characters && copyfiles -u 3 src/Agent/characters/*.json build/Agent/characters",
     "switch-character": "tsc && npm run postbuild && node build/scripts/switchCharacter.js",
     "clear-cache": "rimraf cookies/Instagramcookies.json && echo 'Instagram cookies cleared'",
