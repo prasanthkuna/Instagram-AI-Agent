@@ -4,7 +4,9 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsc && npm run postbuild && node build/index.js",
-    "postbuild": "copyfiles -u 3 src/Agent/characters/*.json build/Agent/characters",
+    "postbuild": "rimraf build/Agent/characters && npx mkdirp build/Agent/characters && copyfiles -u 3 src/Agent/characters/*.json build/Agent/characters",
+    "switch-character": "tsc && npm run postbuild && node build/scripts/switchCharacter.js",
+    "clear-cache": "rimraf cookies/Instagramcookies.json && echo 'Instagram cookies cleared'",
     "train-model": "tsc && node build/Agent/training/Model.js",
     "train:link": "tsc && node build/Agent/training/WebsiteScraping.js",
     "train:audio": "tsc && node build/Agent/training/TrainWithAudio.js"
@@ -58,6 +60,8 @@
     "@types/readline-sync": "^1.4.8",
     "@types/request": "^2.48.12",
     "@types/textract": "^2.4.5",
-    "@types/user-agents": "^1.0.4"
+    "@types/user-agents": "^1.0.4",
+    "mkdirp": "^3.0.1",
+    "rimraf": "^6.0.1"
   }
 }

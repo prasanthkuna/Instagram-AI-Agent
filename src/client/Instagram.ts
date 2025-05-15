@@ -7,7 +7,7 @@ import { Server } from "proxy-chain";
 import { IGpassword, IGusername } from "../secret";
 import logger from "../config/logger";
 import { Instagram_cookiesExist, loadCookies, saveCookies } from "../utils";
-import { runAgent } from "../Agent";
+import { runAgent, initAgent } from "../Agent";
 import { getInstagramCommentSchema } from "../Agent/schema";
 
 // Add stealth plugin to puppeteer
@@ -21,7 +21,16 @@ puppeteer.use(
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Store the selected character globally to avoid repeated selection
+let selectedCharacter: any = null;
+
 async function runInstagram() {
+    console.log("Initializing BiryaniFactory Instagram Bot...");
+    
+    // Select character first to ensure proper initialization
+    selectedCharacter = initAgent();
+    console.log(`Using character: ${selectedCharacter.name}`);
+    
     const server = new Server({ port: 8000 });
     await server.listen();
     const proxyUrl = `http://localhost:8000`;
@@ -197,7 +206,25 @@ async function interactWithPosts(page: any) {
             const commentBox = await page.$(commentBoxSelector);
             if (commentBox) {
                 console.log(`Commenting on post ${postIndex}...`);
-                const prompt = `Craft a thoughtful, engaging, and mature reply to the following post: "${caption}". Ensure the reply is relevant, insightful, and adds value to the conversation. It should reflect empathy and professionalism, and avoid sounding too casual or superficial. also it should be 300 characters or less. and it should not go against instagram Community Standards on spam. so you will have to try your best to humanize the reply`;
+                
+                // Use the already selected character
+                // Create a prompt based on the character - default or BiryaniFactory specific
+                let prompt = `Craft a thoughtful, engaging, and mature reply to the following post: "${caption}". Ensure the reply is relevant, insightful, and adds value to the conversation. It should reflect empathy and professionalism, and avoid sounding too casual or superficial. also it should be 300 characters or less. and it should not go against instagram Community Standards on spam. so you will have to try your best to humanize the reply`;
+                
+                // If it's the BiryaniFactory character, use a specialized prompt
+                if (selectedCharacter && selectedCharacter.name === "BiryaniFactory System Agent") {
+                    console.log("Using BiryaniFactory prompt for comment...");
+                    prompt = `As BiryaniFactory, craft a witty, confident, and engaging reply to this post: "${caption}". 
+                    Your reply should:
+                    - Challenge food bloggers/vloggers to visit and try your biryani
+                    - Compare your biryani favorably to Shah Ghouse and Bawarchi if relevant
+                    - Mention your authentic Hyderabadi dum biryani techniques
+                    - Be conversational and slightly boastful but friendly
+                    - Stay under 300 characters
+                    - Not violate Instagram's spam policies
+                    - Be personalized to the content of the post`;
+                }
+                
                 const schema = getInstagramCommentSchema();
                 const result = await runAgent(schema, prompt);
                 const comment = result[0]?.comment;

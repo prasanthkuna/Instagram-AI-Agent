@@ -13,6 +13,9 @@ Before using the automation features, you can personalize the agent by training 
 
 - **Instagram Automation**: Automatically log in, post photos, like posts, and leave thoughtful comments.
 - **AI-Powered Content Generation**: Use Google Generative AI to create engaging captions and comments.
+- **Character Selection**: Choose between different agent personalities including:
+  - **ArcanEdge System Agent**: A tech-focused AI communication specialist
+  - **BiryaniFactory**: A witty Hyderabadi restaurant challenging food bloggers to try their biryani
 - **Proxy Support**: Use proxies to manage multiple accounts and avoid rate limits.
 - **Cookie Management**: Save and load cookies to maintain sessions across restarts.
 
@@ -98,6 +101,17 @@ Before using the automation features, you can personalize the agent by training 
    ```sh
    npm start
    ```
+   
+2. **Switch characters without restarting**:
+   ```sh
+   npm run switch-character
+   ```
+   
+3. **Clear cache if experiencing issues**:
+   ```sh
+   npm run clear-cache
+   ```
+   This will clear Instagram cookies and force a new login on next start.
 
 **Upcoming Features:**
 

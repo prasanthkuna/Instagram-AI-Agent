@@ -44,6 +44,13 @@ export async function runAgent(schema: InstagramCommentSchema, prompt: string): 
 }
 
 export function chooseCharacter(): any {
+    // Clear require cache to ensure fresh character loading
+    Object.keys(require.cache).forEach(key => {
+        if (key.includes('characters') && key.endsWith('.json')) {
+            delete require.cache[key];
+        }
+    });
+
     const charactersDir = (() => {
         const buildPath = path.join(__dirname, "characters");
         if (fs.existsSync(buildPath)) {
@@ -53,23 +60,39 @@ export function chooseCharacter(): any {
             return path.join(process.cwd(), "src", "Agent", "characters");
         }
     })();
+    
+    // Force re-reading the directory contents
+    fs.readdirSync(charactersDir, { withFileTypes: true }); // Clear any directory cache
     const files = fs.readdirSync(charactersDir);
     const jsonFiles = files.filter(file => file.endsWith(".json"));
+    
     if (jsonFiles.length === 0) {
         throw new Error("No character JSON files found");
     }
+    
     console.log("Select a character:");
     jsonFiles.forEach((file, index) => {
         console.log(`${index + 1}: ${file}`);
     });
+    
+    // Add option for BiryaniFactory with note that it's new
+    const biryaniIndex = jsonFiles.findIndex(file => file.includes("BiryaniFactory"));
+    if (biryaniIndex >= 0) {
+        console.log(`\nRecommended: ${biryaniIndex + 1}: ${jsonFiles[biryaniIndex]} (New!)`);
+    }
+    
     const answer = readlineSync.question("Enter the number of your choice: ");
     const selection = parseInt(answer);
     if (isNaN(selection) || selection < 1 || selection > jsonFiles.length) {
         throw new Error("Invalid selection");
     }
+    
     const chosenFile = path.join(charactersDir, jsonFiles[selection - 1]);
-    const data = fs.readFileSync(chosenFile, "utf8");
+    
+    // Read file with no caching
+    const data = fs.readFileSync(chosenFile, { encoding: "utf8", flag: "r" });
     const characterConfig = JSON.parse(data);
+    
     return characterConfig;
 }
 
