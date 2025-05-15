@@ -215,11 +215,16 @@ async function interactWithPosts(page: any) {
                 if (selectedCharacter && selectedCharacter.name === "BiryaniFactory System Agent") {
                     console.log("Using BiryaniFactory prompt for comment...");
                     prompt = `As BiryaniFactory, craft a witty, confident, and engaging reply to this post: "${caption}". 
-                    Your reply should:
-                    - Challenge food bloggers/vloggers to visit and try your biryani
+                    Your reply should include ONE OR MORE of the following elements (choose what's most relevant):
+                    - Challenge food bloggers/vloggers to visit and try your biryani with a 100% money-back guarantee
+                    - Mention you're open for food video collaborations and reviews
+                    - Reference your Linktree (https://linktr.ee/ffuBiryanifactory) where appropriate
                     - Compare your biryani favorably to Shah Ghouse and Bawarchi if relevant
                     - Mention your authentic Hyderabadi dum biryani techniques
                     - Be conversational and slightly boastful but friendly
+                    - For food content: emphasize your money-back challenge if customers don't like the food
+                    - For review content: invite them to create content at your restaurant
+                    - For collaboration requests: direct them to your Linktree for more information
                     - Stay under 300 characters
                     - Not violate Instagram's spam policies
                     - Be personalized to the content of the post`;
@@ -265,4 +270,276 @@ async function interactWithPosts(page: any) {
     }
 }
 
-export { runInstagram };
+// Function to interact with accounts the user follows
+async function interactWithFollowedAccounts(page: any) {
+    try {
+        logger.info("Starting to interact with accounts you follow...");
+        
+        // Navigate to profile page by clicking the profile icon
+        logger.info("Navigating to profile page...");
+        
+        // Try to find profile navigation using various selectors
+        let profileNavigated = false;
+        
+        // Method 1: Try using bottom navigation bar
+        try {
+            const navbarItems = await page.$$('nav > div > div > div');
+            if (navbarItems && navbarItems.length > 4) {
+                await navbarItems[4].click();
+                await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+                profileNavigated = true;
+            }
+        } catch (e) {
+            logger.info("Method 1 failed, trying another approach");
+        }
+        
+        // Method 2: Try using profile icon in header
+        if (!profileNavigated) {
+            try {
+                await page.waitForSelector('span[role="link"]:has(img)', { timeout: 5000 });
+                await page.click('span[role="link"]:has(img)');
+                await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+                profileNavigated = true;
+            } catch (e) {
+                logger.info("Method 2 failed, trying another approach");
+            }
+        }
+        
+        if (!profileNavigated) {
+            logger.error("Could not navigate to profile page");
+            return;
+        }
+        
+        // Click on the "Following" link
+        logger.info("Accessing Following list...");
+        await page.waitForSelector('a[href*="following"]', { timeout: 10000 });
+        const followingLink = await page.$('a[href*="following"]');
+        
+        if (followingLink) {
+            await followingLink.click();
+            await page.waitForTimeout(3000);
+            
+            // Get list of accounts being followed
+            const followedAccounts = await page.$$('div[role="dialog"] a[role="link"]');
+            logger.info(`Found ${followedAccounts.length} accounts you're following`);
+            
+            // Visit and interact with up to 10 accounts
+            const maxAccountsToVisit = Math.min(10, followedAccounts.length);
+            
+            for (let i = 0; i < maxAccountsToVisit; i++) {
+                try {
+                    // Get a fresh reference to the account link
+                    const accountLinks = await page.$$('div[role="dialog"] a[role="link"]');
+                    if (accountLinks.length <= i) {
+                        break;
+                    }
+                    
+                    // Get the username before clicking
+                    const username = await accountLinks[i].evaluate((el: Element) => el.textContent);
+                    logger.info(`Visiting profile ${i+1}/${maxAccountsToVisit}: ${username}`);
+                    
+                    // Click to open the account
+                    await accountLinks[i].click();
+                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+                    
+                    // Interact with the latest post
+                    await page.waitForSelector('article a[href*="/p/"]', { timeout: 5000 });
+                    const firstPost = await page.$('article a[href*="/p/"]');
+                    
+                    if (firstPost) {
+                        await firstPost.click();
+                        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+                        
+                        // Like the post if not already liked
+                        const likeButtonSelector = 'svg[aria-label="Like"]';
+                        const likeButton = await page.$(likeButtonSelector);
+                        if (likeButton) {
+                            logger.info(`Liking post from ${username}...`);
+                            await likeButton.click();
+                            await page.waitForTimeout(1000);
+                        }
+                        
+                        // Comment on the post
+                        const commentBoxSelector = 'textarea[aria-label="Add a comment…"]';
+                        const commentBox = await page.$(commentBoxSelector);
+                        if (commentBox) {
+                            logger.info(`Commenting on post from ${username}...`);
+                            
+                            // Create a specialized prompt for followed accounts
+                            let prompt = `As BiryaniFactory, craft a witty, confident, and engaging reply to this post by ${username}, a profile you follow. 
+                            Your reply should include ONE OR MORE of the following elements (choose what's most relevant):
+                            - Express genuine appreciation for their content
+                            - Challenge them to visit and try your biryani with a 100% money-back guarantee
+                            - Mention you're open for food video collaborations and reviews
+                            - Reference your Linktree (https://linktr.ee/ffuBiryanifactory) where appropriate
+                            - Stay under 300 characters
+                            - Not violate Instagram's spam policies
+                            - Be personalized and sound like a real person interacting with someone they follow`;
+                            
+                            const schema = getInstagramCommentSchema();
+                            const result = await runAgent(schema, prompt);
+                            const comment = result[0]?.comment;
+                            
+                            await commentBox.type(comment);
+                            await page.waitForTimeout(1000);
+                            
+                            // Click the Post button
+                            const postButton = await page.evaluateHandle(() => {
+                                const buttons = Array.from(document.querySelectorAll('div[role="button"]'));
+                                return buttons.find(button => button.textContent === 'Post' && !button.hasAttribute('disabled'));
+                            });
+                            
+                            if (postButton) {
+                                await postButton.click();
+                                logger.info(`Comment posted on ${username}'s post`);
+                                
+                                // Wait to avoid looking like a bot
+                                const randomWait = Math.floor(Math.random() * 5000) + 5000;
+                                await page.waitForTimeout(randomWait);
+                            }
+                        }
+                        
+                        // Close the post
+                        const closeButton = await page.$('svg[aria-label="Close"]');
+                        if (closeButton) {
+                            await closeButton.click();
+                            await page.waitForTimeout(2000);
+                        }
+                    }
+                    
+                    // Go back to the profile page
+                    await page.goBack();
+                    await page.waitForTimeout(2000);
+                    
+                    // Then back to the main Instagram page
+                    await page.goto("https://www.instagram.com/");
+                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+                    
+                    // Navigate back to profile
+                    profileNavigated = false;
+                    
+                    try {
+                        const navbarItems = await page.$$('nav > div > div > div');
+                        if (navbarItems && navbarItems.length > 4) {
+                            await navbarItems[4].click();
+                            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+                            profileNavigated = true;
+                        }
+                    } catch (e) {
+                        logger.info("Profile navigation method 1 failed, trying another approach");
+                    }
+                    
+                    if (!profileNavigated) {
+                        try {
+                            await page.waitForSelector('span[role="link"]:has(img)', { timeout: 5000 });
+                            await page.click('span[role="link"]:has(img)');
+                            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+                            profileNavigated = true;
+                        } catch (e) {
+                            logger.info("Profile navigation method 2 failed");
+                            break; // Exit the loop if we can't navigate back
+                        }
+                    }
+                    
+                    // Re-open the following list
+                    await page.waitForSelector('a[href*="following"]', { timeout: 10000 });
+                    const followingLinkAgain = await page.$('a[href*="following"]');
+                    if (followingLinkAgain) {
+                        await followingLinkAgain.click();
+                        await page.waitForTimeout(3000);
+                    } else {
+                        break; // Exit the loop if we can't reopen the following list
+                    }
+                    
+                } catch (accountError) {
+                    logger.error(`Error interacting with account ${i+1}:`, accountError);
+                    
+                    // Try to recover and continue with next account
+                    await page.goto("https://www.instagram.com/");
+                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+                    break; // Exit the loop as recovery might be difficult
+                }
+            }
+            
+            logger.info("Finished interacting with followed accounts");
+            
+        } else {
+            logger.error("Could not find 'Following' link");
+        }
+        
+    } catch (error) {
+        logger.error("Error in interactWithFollowedAccounts:", error);
+    }
+}
+
+// Function to run Instagram bot with following interaction
+async function runInstagramWithFollowing() {
+    console.log("Initializing BiryaniFactory Instagram Bot with following interaction...");
+    
+    // Select character first to ensure proper initialization
+    selectedCharacter = initAgent();
+    console.log(`Using character: ${selectedCharacter.name}`);
+    
+    const server = new Server({ port: 8000 });
+    await server.listen();
+    const proxyUrl = `http://localhost:8000`;
+    const browser = await puppeteer.launch({
+        headless: false,
+        args: [`--proxy-server=${proxyUrl}`],
+    });
+
+    const page = await browser.newPage();
+    const cookiesPath = "./cookies/Instagramcookies.json";
+
+    const checkCookies = await Instagram_cookiesExist();
+    logger.info(`Checking cookies existence: ${checkCookies}`);
+
+    if (checkCookies) {
+        const cookies = await loadCookies(cookiesPath);
+        await page.setCookie(...cookies);
+        logger.info('Cookies loaded and set on the page.');
+
+        // Navigate to Instagram to verify if cookies are valid
+        await page.goto("https://www.instagram.com/", { waitUntil: 'networkidle2' });
+
+        // Check if login was successful by verifying page content
+        const isLoggedIn = await page.$("a[href='/direct/inbox/']");
+        if (isLoggedIn) {
+            logger.info("Login verified with cookies.");
+        } else {
+            logger.warn("Cookies invalid or expired. Logging in again...");
+            await loginWithCredentials(page, browser);
+        }
+    } else {
+        // If no cookies are available, perform login with credentials
+        await loginWithCredentials(page, browser);
+    }
+
+    // Take a screenshot after loading the page
+    await page.screenshot({ path: "logged_in.png" });
+
+    // Navigate to the Instagram homepage
+    await page.goto("https://www.instagram.com/");
+    
+    try {
+        // First interact with followed accounts
+        await interactWithFollowedAccounts(page);
+        
+        // Then continue with the normal feed interaction
+        while (true) {
+            await interactWithPosts(page);
+            logger.info("Iteration complete, waiting 30 seconds before refreshing...");
+            await delay(30000);
+            try {
+                await page.reload({ waitUntil: "networkidle2" });
+            } catch (e) {
+                logger.warn("Error reloading page, continuing iteration: " + e);
+            }
+        }
+    } catch (error) {
+        logger.error("Error in runInstagramWithFollowing:", error);
+        await browser.close();
+    }
+}
+
+export { runInstagram, runInstagramWithFollowing, interactWithFollowedAccounts };
